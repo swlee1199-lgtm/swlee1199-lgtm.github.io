@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>부광하우스 재개발 대시보드</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<style>
+/* VOICE work: an investment desk's scenario book, quiet and exact
+   IDEA a metro map: the redevelopment runs through stations (stages); three scenario lines run in parallel
+   PICTURE price-path chart with station dots + schedule drawn as three metro tracks; data tabs mirror the workbook sheets
+   COLOUR white ground, ink, red #e6261f 약세, blue #0a5cff 기본, green #00a05a 강세, amber #ffb400 for "now"
+   TYPE Figtree 800 for figures + Noto Sans KR for text
+   LAYOUT sticky bar with sheet tabs; dashboard: finding + KPIs, chart beside controls, verdicts, bars; data tabs: full-width tables */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0e1116);--ink:light-dark(#111418,#e8ebf0);--sub:light-dark(#5d6470,#9aa3b2);--line:light-dark(#e6e8ec,#252a32);--panel:light-dark(#f7f8fa,#151920);--r:#e6261f;--b:#0a5cff;--g:#00a05a;--a:#ffb400;--rt:light-dark(#fdeeec,#2a1616);--bt:light-dark(#ebf1ff,#111c31);--gt:light-dark(#e7f6ef,#0f231a)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0}
+html{scroll-padding-top:120px}
+body{background:var(--panel);color:var(--ink);font:15px/1.55 "Noto Sans KR","Figtree",system-ui,sans-serif;overflow-x:clip}
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar .in{max-width:1280px;margin:0 auto;padding:10px max(3vw,16px) 0;display:flex;flex-direction:column;gap:6px}
+.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand b{font:800 17px "Noto Sans KR",sans-serif;letter-spacing:-.01em}
+.brand span{font-size:13px;color:var(--sub)}
+nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav a{flex:none;padding:10px 12px;font-size:14px;color:var(--sub);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap}
+nav a:hover{color:var(--ink)}
+nav a[aria-current=page]{color:var(--ink);font-weight:700;border-color:var(--b)}
+main{max-width:1280px;margin:0 auto;padding:20px max(3vw,16px) 48px}
+.view{display:none}.view.on{display:block}
+h1{font:800 clamp(26px,3.2vw,40px)/1.12 "Noto Sans KR",sans-serif;letter-spacing:-.02em;margin:4px 0 6px;text-wrap:balance}
+h2{font:700 18px/1.3 "Noto Sans KR",sans-serif;margin:0 0 12px}
+h3{font:700 15px/1.3 "Noto Sans KR",sans-serif;margin:0 0 8px}
+.lede{color:var(--sub);margin:0 0 16px;font-size:14px}
+.num{font-family:"Figtree",sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(10.5em,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi b{display:block;font:800 clamp(22px,2.4vw,30px)/1.15 "Figtree",sans-serif;font-variant-numeric:tabular-nums;margin:2px 0}
+.kpi span{font-size:13px;color:var(--sub)}
+.main{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1fr);gap:16px}
+.main>.card{margin:0}
+.fig{position:relative;min-height:500px}.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.metro{position:relative;min-height:180px;margin-top:10px;border-top:1px solid var(--line)}.metro>svg{position:absolute;inset:0;width:100%;height:100%}
+svg text{font:13px "Figtree","Noto Sans KR",sans-serif;fill:var(--sub);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--sub);margin-bottom:4px}
+.legend i{display:inline-block;width:16px;height:4px;border-radius:2px;vertical-align:middle;margin-right:5px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;min-height:44px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;font:700 14px "Noto Sans KR",sans-serif;cursor:pointer}
+.tabs button[aria-pressed=true]{color:#fff;border-color:transparent}
+.ctl{margin-bottom:8px}
+.ctl label{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.ctl label .num{font-weight:700}
+input[type=range]{width:100%;height:30px;accent-color:var(--cur,var(--b));cursor:pointer;margin:0}
+.ctlhd{font-size:13px;color:var(--sub);margin:12px 0 6px;border-top:1px solid var(--line);padding-top:10px}
+.btn{min-height:40px;padding:0 14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;font:500 14px "Noto Sans KR",sans-serif;cursor:pointer}
+.btn:hover{border-color:var(--sub)}
+:focus-visible{outline:3px solid var(--a);outline-offset:2px}
+.verd{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:16px 0}
+.vc{border-radius:12px;padding:18px;border:1px solid var(--line)}
+.vc .v{font:800 clamp(22px,2.2vw,28px)/1.15 "Noto Sans KR",sans-serif;letter-spacing:-.02em;margin:2px 0 12px}
+.vc dl{display:grid;grid-template-columns:1fr auto;gap:5px 12px;margin:0 0 12px;font-size:14px}
+.vc dt{color:var(--sub)}.vc dd{margin:0;text-align:right;font-weight:700}
+.vc p{margin:0 0 8px;font-size:14px}
+.vc .sig{font-size:13px;color:var(--sub);border-top:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding-top:8px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.two>.card{margin:0}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;vertical-align:middle}
+th:first-child,td:first-child{text-align:left}
+td.l,th.l{text-align:left}
+td.wrap{text-align:left;white-space:normal;min-width:16em;color:var(--sub);font-size:13px}
+thead th{font-weight:700;font-size:13px;color:var(--sub);background:var(--panel);position:sticky;top:0}
+.sticky td:first-child,.sticky th:first-child{position:sticky;left:0;background:var(--bg);z-index:1}
+.sticky thead th:first-child{background:var(--panel)}
+tr.sec td{font-weight:700;background:var(--panel);text-align:left;color:var(--ink)}
+tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
+.chip{display:inline-block;padding:1px 8px;border-radius:6px;font-size:12px;color:#14161a;white-space:nowrap}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;color:#fff;font-weight:700;font-size:13px}
+.sc0{color:var(--r)}.sc1{color:var(--b)}.sc2{color:var(--g)}
+.neg{color:var(--r)}
+.bars .row{display:grid;grid-template-columns:6.5em minmax(0,1fr) 4.8em;align-items:center;gap:8px;font-size:13px;margin:4px 0}
+.bars .track{height:14px;position:relative;background:var(--panel);border-radius:3px}
+.bars .fill{position:absolute;top:0;bottom:0;border-radius:3px}
+.bars .grp{margin-bottom:12px}
+.bars .gh{font-size:14px;font-weight:700;margin-bottom:2px}
+.inp{width:6.5em;min-height:36px;padding:4px 8px;font:500 15px "Figtree",sans-serif;text-align:right;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.inp:hover{border-color:var(--sub)}
+.heat td.h{color:#14161a;font-weight:500}
+.grid-h{margin-bottom:20px}
+.note{font-size:13px;color:var(--sub)}
+.paste textarea{width:100%;min-height:150px;padding:10px;font:14px/1.5 "Noto Sans KR",sans-serif;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);resize:vertical}
+.paste .msg{font-size:14px;margin-top:8px}
+.add{display:inline-block;margin-left:6px;padding:0 6px;border-radius:5px;background:var(--a);color:#14161a;font-size:11px;font-weight:700}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+@media(max-width:960px){.main{grid-template-columns:minmax(0,1fr)}.verd{grid-template-columns:minmax(0,1fr)}.two{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){table{font-size:13px}th,td{padding:6px 6px}.fig{min-height:300px}.brand span{display:none}}
+@media(prefers-reduced-motion:no-preference){.fill{transition:width .3s ease,left .3s ease}}
+</style>
+</head>
+<body>
+<header class="bar"><div class="in">
+ <div class="brand"><b>부광하우스 재개발 시나리오</b><span>중곡동 633-6 · 2019년식 · 전용 10.24평 · 대지 7.48평 · A6 구역(군자역)</span></div>
+ <nav id="nav" aria-label="시트"></nav>
+</div></header>
+<main>
+
+<section class="view" id="v-dashboard">
+ <h1 id="ttl">부광하우스 재개발 시나리오</h1>
+ <p class="lede">A6 구역 연번부여·동의서 징구 단계 기준. 오른쪽 슬라이더나 '입력변수' 탭에서 가정을 바꾸면 모든 탭이 다시 계산됩니다.</p>
+ <div class="kpis" id="kpis"></div>
+ <div class="main">
+  <div class="card">
+   <h2>추정가 경로 (억원, 명목)</h2>
+   <div class="legend"><span><i style="background:var(--r)"></i>약세</span><span><i style="background:var(--b)"></i>기본</span><span><i style="background:var(--g)"></i>강세</span><span>○ 단계 도달 · 관리처분 이후는 입주권 가치</span></div>
+   <div class="fig"><svg id="chart" role="img" aria-label="시나리오별 추정가 경로"></svg></div>
+   <div class="metro"><svg id="metro" role="img" aria-label="시나리오별 사업 일정"></svg></div>
+  </div>
+  <div class="card" id="ctlcard">
+   <h2>가정 조정</h2>
+   <div class="tabs" id="tabs"></div>
+   <div id="ctls"></div>
+   <div class="ctlhd">공통 가정</div>
+   <div id="ctlc"></div>
+   <button class="btn reset" type="button">기본값으로 되돌리기</button>
+  </div>
+ </div>
+ <div class="verd" id="verd"></div>
+ <div class="two">
+  <div class="card"><h2>84㎡ 분담금 구성</h2><div class="bars" id="bdn"></div></div>
+  <div class="card"><h2>매도 시점별 연수익률</h2><div class="bars" id="cagr"></div></div>
+ </div>
+ <div class="card" style="margin-top:16px"><h2>현재 신호 점검</h2><div class="scroll"><table id="sig"></table></div>
+ <p class="note">판단 규칙: 입주 보유 IRR이 대안수익률보다 낮거나 지금 팔고 대안투자하는 쪽이 나으면 매도 우위, IRR이 대안수익률 + 허들 이상이고 안전마진이 기준 이상이면 입주까지 보유, 그 사이는 단계 매도.</p></div>
+</section>
+
+<section class="view" id="v-inputs">
+ <h1>입력변수</h1>
+ <p class="lede">모든 가정을 여기서 바꿀 수 있습니다. 공통 항목은 한 칸, 시나리오 항목은 약세·기본·강세 각각. 퍼센트는 % 단위로 입력하세요.</p>
+ <div class="tools"><button class="btn reset" type="button">기본값으로 되돌리기</button><span class="note">바꾼 값은 이 브라우저에 기억됩니다.</span></div>
+ <div class="card"><div class="scroll"><table class="sticky" id="inTbl"></table></div></div>
+ <div class="card"><h2>감정평가 비교사례 가중치·입지보정</h2><div class="scroll"><table class="sticky" id="cwTbl"></table></div>
+ <p class="note">입지보정은 비교사례 대비 부광하우스가 유리하면 +로 입력합니다(역까지 도보거리 차이 등).</p></div>
+</section>
+
+<section class="view" id="v-timeline">
+ <h1>연도별 가격</h1>
+ <p class="lede">사업시행인가까지는 현재 감정가 + 현재 프리미엄 × 단계배수 × 시장상승, 관리처분부터는 신축시세 × (1 − 할인율) − 분담금입니다. 입주 이후 값은 신축시세 − 분담금.</p>
+ <div class="card"><h2>현재 시세 추정</h2><div class="scroll"><table id="curTbl"></table></div></div>
+ <div class="card"><div class="scroll"><table class="sticky" id="tlTbl"></table></div></div>
+</section>
+
+<section class="view" id="v-contrib">
+ <h1>분담금 · 비례율</h1>
+ <p class="lede">비례율 = 기준비례율 × (총수입지수 − 사업비비율 × 공사비지수) ÷ (1 − 사업비비율). 구역 전체 감정이 같이 오르면 비례율로 상쇄되므로 기준비례율은 사업시행인가 감정 수준에 맞춘 값입니다.</p>
+ <div class="card"><div class="scroll"><table class="sticky" id="bTbl"></table></div></div>
+</section>
+
+<section class="view" id="v-appraisal">
+ <h1>종전자산 감정평가 (거래사례비교법)</h1>
+ <p class="lede">비교사례의 공시가에 규모보정(전용·대지 가중), 연식보정, 입지보정을 적용하고 구역 평균 감정배수와 부광 가점을 곱해 가중평균합니다. 현재가치 기준이며 시점수정은 분담금 탭에서 적용됩니다.</p>
+ <div class="card"><div class="scroll"><table class="sticky" id="apTbl"></table></div></div>
+ <div class="card"><h2>요약</h2><div class="scroll"><table id="apSum"></table></div></div>
+</section>
+
+<section class="view" id="v-returns">
+ <h1>수익률</h1>
+ <p class="lede">출발점은 추정 현재 시세(지금 팔 수 있는 가치를 기회비용으로 봄). 양도세·취득세는 제외했습니다.</p>
+ <div class="card"><h2>① 단계별 매도 시 연환산 수익률</h2><div class="scroll"><table class="sticky" id="exTbl"></table></div></div>
+ <div id="cfWrap"></div>
+ <div class="card"><h2>③ 지금 매도 후 대안투자와 비교 (입주연도 기준)</h2><div class="scroll"><table class="sticky" id="cmpTbl"></table></div></div>
+</section>
+
+<section class="view" id="v-sensitivity">
+ <h1>민감도</h1>
+ <p class="lede">기본 시나리오에서 두 변수만 바꿨을 때의 결과입니다. 빨강일수록 불리, 초록일수록 유리합니다.</p>
+ <div id="sens"></div>
+</section>
+
+<section class="view" id="v-comps-a6">
+ <h1>실거래 · A6 구역 (군자역, 연번부여·동의서 징구)</h1>
+ <p class="lede">처음 제공받은 실거래(2026.05~10)에 붙여넣기로 추가한 거래가 합쳐집니다. 단독·근생·직거래·취소는 비교에서 제외(흐리게 표시). 프리미엄 = (거래가 − 공시가 × 현재 감정/공시 비율) ÷ 대지지분.</p>
+ <div class="card paste" data-z="A6"></div>
+ <div class="card"><div class="scroll"><table class="sticky" id="rawA6"></table></div></div>
+ <div class="card"><h2>구간별 통계 (분석 포함 거래)</h2><div class="scroll"><table id="stA6"></table></div></div>
+</section>
+
+<section class="view" id="v-comps-a5">
+ <h1>실거래 · A5 구역 (중곡1동 254-15 일대, 정비구역 지정)</h1>
+ <p class="lede">처음 제공받은 실거래(2026.05~09)에 붙여넣기로 추가한 거래가 합쳐집니다. 단독·취소·직거래는 비교에서 제외(흐리게 표시).</p>
+ <div class="card paste" data-z="A5"></div>
+ <div class="card"><div class="scroll"><table class="sticky" id="rawA5"></table></div></div>
+ <div class="card"><h2>구간별 통계 (분석 포함 거래)</h2><div class="scroll"><table id="stA5"></table></div></div>
+</section>
+
+<section class="view" id="v-guide">
+ <h1>안내</h1>
+ <div class="card"><div class="scroll"><table id="guideTbl"></table></div></div>
+</section>
+</main>
+
+<script>
+{
+const COMMON={base:2026,area:10.24,land:7.48,pub:2.12,appr0:2.10,built:2019,wmeth:0.5,p84:13,p59:10,rcost:0.6,sgen:0.4,pass:0.7,agerate:0.01,hold:0.01,sellc:0.01,ltv:0.5,rate:0.045,rent:0.3,dep:0.1,mid:0.6,alt:0.035,hurdle:0.05,minmargin:0.5,cw:[0.20,0.25,0.25,0.15,0.10,0.05],loc:[0,0,0,0,0,0]};
+const SCEN0=[
+ {name:"약세",prob:0.25,g:0.01,gc:0.045,new84:22,amult:1.20,bonus:0.00,wa:0.7,bratio:0.95,m2:1.15,m3:1.30,m4:1.45,d0:0.45,dmp:0.22,st:[2026,2028,2030,2032,2034,2035,2039]},
+ {name:"기본",prob:0.50,g:0.03,gc:0.040,new84:24,amult:1.35,bonus:0.05,wa:0.5,bratio:1.00,m2:1.25,m3:1.45,m4:1.65,d0:0.40,dmp:0.20,st:[2026,2027,2029,2030,2032,2033,2036]},
+ {name:"강세",prob:0.25,g:0.05,gc:0.025,new84:26,amult:1.50,bonus:0.10,wa:0.3,bratio:1.05,m2:1.40,m3:1.65,m4:1.90,d0:0.35,dmp:0.18,st:[2026,2027,2028,2029,2031,2032,2035]}];
+const STAGES=["연번부여·동의서","정비구역 지정","조합설립인가","사업시행인가","관리처분인가","이주·착공","준공·입주"];
+// zone, date, type, built, lot, name, floor, area, land, price, pub, include
+const A6=[["A6","26.10.22","다세대",2016,"618-7","마드레",3,13.18,7.41,6.60,2.76,1],["A6","26.10.16","다세대",2020,"626-1","성지캐슬",2,14.49,8.83,8.15,3.53,1],["A6","26.10.15","다세대",2002,"620-2","건양쉐르빌",2,17.69,11.18,6.20,1.91,1],["A6","26.10.03","다세대",2008,"624-27","동양하우스",5,6.08,4.01,3.65,0.856,1],["A6","26.09.16","근생",1987,"628-10","근린생활",null,138.67,59.74,23.90,null,0],["A6","26.09.14","다세대",2009,"625-5","강변타운",2,12.57,8.00,5.05,1.89,1],["A6","26.09.12","다세대",2008,"624-27","동양하우스",5,6.08,4.01,3.07,0.856,1],["A6","26.09.12","다세대",2018,"632-4","632-4",2,9.01,7.03,5.00,1.90,1],["A6","26.07.31","다세대",1993,"626-6","명성타운가동",1,9.51,5.98,1.82,1.05,0],["A6","26.07.07","단독",1991,"632-2","단독",null,73.28,45.89,18.50,6.49,0],["A6","26.06.29","다세대",2003,"629-1","대광빌",4,12.51,6.42,5.10,1.54,1],["A6","26.06.20","다세대",2018,"624-15","바른채",3,7.19,4.91,4.50,1.55,1],["A6","26.05.15","다세대",2002,"624-32","성산하이츠빌",2,22.80,10.28,7.65,2.41,1],["A6","26.05.10","다세대",2018,"624-15","바른채",3,8.64,5.82,4.10,1.77,1],["A6","26.05.01","다세대",2019,"633-6","부광하우스",2,10.24,7.48,5.18,2.12,1]];
+const A5=[["A5","26.09.12","다세대",2021,"247-21","한양팰리스",3,12.49,9.49,7.50,3.18,1],["A5","26.08.07","단독",1988,"254-31","단독",null,61.77,40.90,11.00,4.77,0],["A5","26.07.27","다세대",2002,"255-21","금성빌라",2,19.24,9.44,7.20,2.27,1],["A5","26.07.15","단독",1993,"246-12","단독",null,42.38,27.50,7.70,3.15,0],["A5","26.07.09","다세대",2017,"253-8","중곡트라움",3,14.31,8.47,8.10,2.94,1],["A5","26.07.03","다세대",2021,"247-21","한양팰리스(취소)",3,11.79,8.96,5.20,3.01,0],["A5","26.05.23","다세대",2018,"256-48","이레하우스",2,9.01,6.94,5.20,2.02,1],["A5","26.05.22","아파트",null,"254-12","호동",3,20.98,10.09,8.30,3.49,1],["A5","26.05.15","단독",1991,"255-26","단독",null,60.45,40.99,10.00,4.48,0],["A5","26.05.08","아파트",null,"254-12","호동",1,20.98,10.09,7.90,3.28,1],["A5","26.05.08","다세대",2018,"256-48","이레하우스",2,4.36,3.46,3.30,1.18,1],["A5","26.05.08","다세대",2018,"256-48","이레하우스",2,4.29,3.42,3.30,1.15,1],["A5","26.05.08","다세대",2017,"254-38","세종에코그린",3,12.52,8.42,5.95,2.66,1],["A5","26.05.08","다세대",2018,"256-48","이레하우스",3,9.01,6.94,5.20,2.02,1],["A5","26.05.08","다세대",2018,"256-48","이레하우스",3,4.29,3.42,3.30,1.15,1]];
+const COMPS=[[null,"대상 자체(부광 공시가)"],["마드레","마드레"],["성지캐슬","성지캐슬"],["632-4","632-4 (2018)"],["바른채8.64","바른채 8.64평"],["동양하우스","동양하우스"]];
+function compRow(key){if(key==="바른채8.64")return A6[13];return A6.find(r=>r[5]===key)}
+function avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN}
+function derive(r,c){const k=c.appr0/c.pub;return {mon:+r[1].split(".")[1],nw:!!(r[3]&&r[3]>=2016),land:r[9]*1e4/r[8],per:r[9]*1e4/r[7],mult:r[10]?r[9]/r[10]:NaN,prem:r[10]!=null?(r[9]-r[10]*k)*1e4/r[8]:NaN}}
+function ymOf(r){const [yy,mm]=r[1].split(".").map(Number);return (2000+yy)*12+mm}
+const ymLabel=ym=>`${Math.floor((ym-1)/12)}.${String((ym-1)%12+1).padStart(2,"0")}`;
+function stats(rows,c){const D=rows.map(r=>[r,derive(r,c),ymOf(r)]);
+ const f=(pred,nw)=>{const s=D.filter(([r,d,ym])=>r[11]&&(!nw||d.nw)&&pred(ym));return {n:s.length,land:avg(s.map(x=>x[1].land)),prem:avg(s.map(x=>x[1].prem)),mult:avg(s.map(x=>x[1].mult))}};
+ const newYms=D.filter(([r,d])=>r[11]&&d.nw).map(x=>x[2]);const last=newYms.length?Math.max(...newYms):0;
+ const months=[...new Set(D.filter(x=>x[0][11]).map(x=>x[2]))].sort((a,b)=>b-a).map(ym=>({ym,label:ymLabel(ym),nw:f(y=>y===ym,1),all:f(y=>y===ym,0)}));
+ return {last,lastLabel:last?ymLabel(last):"-",oc:f(y=>y===last,1),js:f(y=>y>=last-2&&y<=last,1),win:[last-2,last],months,f}}
+function irr(cf){let lo=-0.99,hi=1;const npv=r=>cf.reduce((s,v,i)=>s+v/Math.pow(1+r,i),0);if(npv(lo)*npv(hi)>0)return NaN;for(let i=0;i<200;i++){const m=(lo+hi)/2;(npv(lo)*npv(m)<=0)?hi=m:lo=m}return (lo+hi)/2}
+function run(c,S){
+ const s6=stats(A6,c),s5=stats(A5,c);
+ const m1=c.land*s6.oc.land/1e4,m2=c.appr0+c.land*s6.oc.prem/1e4;
+ const cur=c.wmeth*m1+(1-c.wmeth)*m2,prem0=cur-c.appr0;
+ const YEARS=[];for(let y=2026;y<=2042;y++)YEARS.push(y);
+ const out=S.map(s=>{
+  let wsum=0,acc=0,accK=0,maderaAp=0;const apRows=[];
+  COMPS.forEach(([key,nm],ci)=>{const w=c.cw[ci],la=c.loc[ci];const r=key?compRow(key):["A6",0,0,c.built,0,0,0,c.area,c.land,null,c.pub];
+   const size=s.wa*c.area/r[7]+(1-s.wa)*c.land/r[8];const age=1+c.agerate*(c.built-r[3]);
+   const pre=r[10]*size*age*(1+la),fin=pre*s.amult*(1+s.bonus);wsum+=w;acc+=w*fin;accK+=w*pre;if(key==="마드레")maderaAp=r[10]*s.amult;
+   apRows.push({nm,zone:r[0],built:r[3],area:r[7],land:r[8],pub:r[10],price:r[9],w,la,age,size,pre,fin})});
+  const apK=wsum?accK/wsum:0,apPv=wsum?acc/wsum:0,base=c.base,[st1,st2,st3,st4,st5,st6,st7]=s.st;
+  const nSa=st4-base,nMp=st5-base,nMv=st7-base;
+  const apNom=apPv*Math.pow(1+s.g,nSa),gm=s.gc*c.pass;
+  const fGen=Math.pow(1+s.g,nMp),fMem=Math.pow(1+gm,nMp),fCost=Math.pow(1+s.gc,nMp);
+  const rev=c.sgen*fGen+(1-c.sgen)*fMem,cost=c.rcost*fCost;
+  const ratio=s.bratio*(rev-cost)/(1-c.rcost),right=apNom*ratio;
+  const p84n=c.p84*fMem,c84=p84n-right,p59n=c.p59*fMem,c59=p59n-right;
+  const newMp=s.new84*Math.pow(1+s.g,nMp),newMv=s.new84*Math.pow(1+s.g,nMv);
+  const ticket=newMp*(1-s.dmp)-c84,netMv=newMv-c84,margin=newMp/p84n-1;
+  const mults=[1,s.m2,s.m3,s.m4,s.m4,s.m4,s.m4];
+  const path=YEARS.map(y=>{let idx=0;s.st.forEach((v,i)=>{if(y>=v)idx=i});
+   const disc=y<=st5?s.d0+(s.dmp-s.d0)*(y-base)/Math.max(1,st5-base):(y>=st7?0:s.dmp*(st7-y)/Math.max(1,st7-st5));
+   const fund=s.new84*Math.pow(1+s.g,y-base)*(1-disc)-c84;
+   const mom=c.appr0+prem0*mults[idx]*Math.pow(1+s.g,y-base);
+   return {y,idx,disc,price:idx<=3?mom:fund,fund}});
+  path.forEach((p,i)=>p.yoy=i?p.price/path[i-1].price-1:NaN);
+  const at=y=>path.find(p=>p.y===y).price;
+  const exits=[1,2,3,4].map(i=>{const y=s.st[i],n=y-base,p=at(y),net=p*(1-c.sellc)-c.hold*n;return {stage:STAGES[i],y,price:p,n,net,gain:net-cur,cagr:n>0?Math.pow(net/cur,1/n)-1:NaN}});
+  const items=[["현재가치 투입(기회비용)",y=>y===base?-cur:0],["보유비용",y=>(y>base&&y<=st7)?-c.hold:0],["분담금 계약금",y=>y===st5?-c84*c.dep:0],["이주비 대출 수령",y=>y===st6?apNom*c.ltv:0],
+   ["이주비·중도금 이자",y=>(y>st6&&y<=st7)?-(apNom*c.ltv+c84*c.mid)*c.rate:0],["이주기간 주거비",y=>(y>st6&&y<=st7)?-c.rent:0],["입주 정산(잔금·중도금·이주비 상환)",y=>y===st7?-c84*(1-c.dep)-apNom*c.ltv:0],["신축 가치(매도비용 차감)",y=>y===st7?newMv*(1-c.sellc):0]];
+  const cfItems=items.map(([l,f])=>({l,v:YEARS.map(f)}));
+  const cf=YEARS.map((y,i)=>cfItems.reduce((s,it)=>s+it.v[i],0));
+  const IRR=irr(cf),profit=cf.reduce((a,b)=>a+b,0);
+  const altV=cur*(1-c.sellc)*Math.pow(1+c.alt,st7-base),holdAdv=cur+profit-altV;
+  const best=exits.reduce((a,b)=>b.cagr>a.cagr?b:a);
+  const verdict=(holdAdv<0||IRR<c.alt)?"매도 우위":(IRR>=c.alt+c.hurdle&&margin>=c.minmargin?"입주까지 보유":"단계 매도");
+  return {s,apRows,apK,apPv,apNom,nSa,nMp,nMv,gm,fGen,fMem,fCost,rev,cost,ratio,right,p84n,c84,p59n,c59,newMp,newMv,ticket,netMv,margin,path,exits,cfItems,cf,IRR,profit,altV,holdAdv,best,verdict,maderaAp};
+ });
+ return {cur,prem0,m1,m2,s6,s5,out,YEARS,locPrem:s6.oc.land/s5.js.land-1,locPremSame:s6.f(y=>y>=s5.win[0]&&y<=s5.win[1],1).land/s5.js.land-1};
+}
+if(typeof module!=="undefined")module.exports={run,COMMON,SCEN0};
+
+function parseMoney(s){if(!s)return NaN;s=s.replace(/\s/g,"");let m=s.match(/^([\d,.]+)억(?:([\d,]+)만)?/);if(m)return parseFloat(m[1].replace(/,/g,""))+(m[2]?parseFloat(m[2].replace(/,/g,""))/1e4:0);
+ m=s.match(/^([\d,]+)만/);if(m)return parseFloat(m[1].replace(/,/g,""))/1e4;return NaN}
+const MONEY_RE=/^[\d,.]+억(?:\s*[\d,]+만)?$|^[\d,]+만$/;
+function parseTrades(text,zone){
+ const out=[],skipped=[];const parts=text.split(/(?=(?:^|\s)\d{2}\.\d{2}\.\d{2}(?=\s))/);
+ for(const raw of parts){const dm=raw.match(/(\d{2}\.\d{2}\.\d{2})/);if(!dm)continue;
+  const lines=raw.slice(raw.indexOf(dm[1])+dm[1].length).split(/\n|\t/).map(s=>s.trim()).filter(Boolean);
+  if(!lines.length)continue;
+  const type=(lines.find(l=>/^(다세대|아파트|연립|단독|다가구|근생|오피스텔|도시형)/.test(l))||"").replace(/\s.*/,"");
+  const builtL=lines.find(l=>/^\d{4}년$/.test(l));const built=builtL?parseInt(builtL):null;
+  const ai=lines.findIndex(l=>/[가-힣]+동\s*[\d-]+$/.test(l));const lot=ai>=0?lines[ai].match(/([\d-]+)$/)[1]:"";
+  let name=lot,floor=null;
+  if(ai>=0&&lines[ai+1]&&!/^(전용|연\s)/.test(lines[ai+1])){const nl=lines[ai+1];const fm=nl.match(/^(.*?)\s*(\d+)층$/);if(fm){name=fm[1]||lot;floor=+fm[2]}else name=nl}
+  const areaL=lines.find(l=>/^(전용|연)\s*[\d.]+평$/.test(l));const area=areaL?parseFloat(areaL.match(/[\d.]+/)[0]):NaN;
+  const cancel=lines.some(l=>l==="취소"),direct=lines.some(l=>l==="직");
+  const priceL=lines.find(l=>MONEY_RE.test(l));const price=parseMoney(priceL);
+  const pubL=lines.find(l=>/^(공주가|공시지가)/.test(l));const pub=pubL?parseMoney(pubL.replace(/^(공주가|공시지가)\s*/,"")):null;
+  const pi=lines.findIndex(l=>/만\/평$/.test(l));let land=NaN;
+  if(pi>=0&&lines[pi+1]){const lm=lines[pi+1].match(/^([\d.]+)/);if(lm)land=parseFloat(lm[1])}
+  if(!isFinite(land)){const lm=lines.slice().reverse().find(l=>/^[\d.]+평$/.test(l)&&!/^(전용|연)/.test(l));if(lm)land=parseFloat(lm)}
+  if(!type||!isFinite(price)||!isFinite(area)||!isFinite(land)){skipped.push(dm[1]);continue}
+  const typ=type.startsWith("근생")?"근생":type;
+  const inc=["다세대","아파트","연립"].includes(typ)&&!cancel&&!direct&&!/^연/.test(areaL)?1:0;
+  const note=[cancel?"취소":"",direct?"직거래":""].filter(Boolean).join("·");
+  out.push([zone,dm[1],typ,built,lot,name+(note?" ("+note+")":""),floor,area,land,Math.round(price*1e4)/1e4,pub,inc,1])}
+ return {rows:out,skipped}}
+const tradeKey=r=>[r[0],r[1],r[4],r[6],r[7],r[9]].join("|");
+if(typeof module!=="undefined")module.exports={parseTrades,parseMoney,tradeKey};
+
+const COL=["var(--r)","var(--b)","var(--g)"],TINT=["var(--rt)","var(--bt)","var(--gt)"],HEX=["#e6261f","#0a5cff","#00a05a"];
+const VIEWS=[["dashboard","대시보드"],["inputs","입력변수"],["timeline","연도별가격"],["contrib","분담금"],["appraisal","감정평가"],["returns","수익률"],["sensitivity","민감도"],["comps-a6","실거래 A6"],["comps-a5","실거래 A5"],["guide","안내"]];
+const clone=o=>JSON.parse(JSON.stringify(o));
+let C=clone(COMMON),S=clone(SCEN0),sel=1,R=null;
+try{const sv=JSON.parse(localStorage.getItem("bkh-model-v2")||"null");if(sv&&sv.S&&sv.C){C={...clone(COMMON),...sv.C};S=SCEN0.map((d,i)=>({...clone(d),...(sv.S[i]||{})}));sel=sv.sel??1}}catch(e){}
+const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+const fin=v=>typeof v==="number"&&isFinite(v);
+const neg=(s,v)=>fin(v)&&v<0?`<span class="neg">${s}</span>`:s;
+const E=v=>fin(v)?neg(v.toFixed(2)+"억",v):"–",P=v=>fin(v)?neg((v*100).toFixed(1)+"%",v):"–",M=v=>fin(v)?Math.round(v).toLocaleString("ko-KR")+"만":"–",X=v=>fin(v)?v.toFixed(2)+"배":"–",N3=v=>fin(v)?v.toFixed(3):"–",Yr=v=>fin(v)?String(v):"–",Pg=v=>fin(v)?v.toFixed(2)+"평":"–";
+const EP=v=>fin(v)?(v.toFixed(2)+"억"):"–",PP=v=>fin(v)?(v*100).toFixed(1)+"%":"–";
+const STC=["#d9dce1","#bdd7ee","#9dc3e6","#c9bfe8","#f8cbad","#ffe699","#a9d08e"];
+const SHORT=["연번·동의","구역지정","조합설립","사업시행","관리처분","이주·착공","준공·입주"];
+const scHead=(first,extra="")=>`<thead><tr><th>${first}</th>${S.map((s,k)=>`<th class="sc${k}">${s.name}</th>`).join("")}${extra}</tr></thead>`;
+
+/* ---------- 입력변수 정의 ---------- */
+const FIELDS=[
+ ["① 대상 물건"],["base","기준연도","c","년","분석 기준 시점"],["area","전용면적","c","평","10.8평 물건이면 수정"],["land","대지지분","c","평","7.8평 물건이면 수정"],["pub","공동주택 공시가격","c","억","사용자 제공"],["appr0","현재 감정가","c","억","사용자 제공 (대출용 시세감정 추정)"],["built","준공연도","c","년",""],
+ ["② 현재 시세 산정"],["wmeth","대지평당법 가중치","c","%","나머지는 프리미엄법"],
+ ["③ 분양가·사업구조 (현재가치)"],["p84","84㎡ 조합원 분양가","c","억","가정. 조합 추정치 공개 시 교체"],["p59","59㎡ 조합원 분양가","c","억","가정"],["rcost","총사업비 / 총수입","c","%","높을수록 공사비 민감"],["sgen","총수입 중 일반분양 비중","c","%",""],["pass","공사비의 조합원분양가 전가율","c","%",""],["agerate","감정 연식 보정률 (1년당)","c","%",""],
+ ["④ 보유·금융 비용"],["hold","연 보유비용","c","억","재산세 등"],["sellc","매도비용률","c","%","양도세 제외"],["ltv","이주비 대출 비율 (감정가 대비)","c","%","통상 40~60%"],["rate","이주비·중도금 금리","c","%",""],["rent","이주기간 연 주거비","c","억",""],["dep","분담금 계약금 비율","c","%","관리처분 시"],["mid","분담금 중도금 비율 (대출)","c","%","이주 시 대출 실행 가정"],["alt","대안 투자수익률","c","%","지금 매도 시"],
+ ["⑤ 시장·인플레이션"],["g","주택가격 연상승률","s","%","프리미엄·신축시세·일반분양가에 적용"],["gc","공사비 연상승률","s","%","사업비·조합원 분양가에 적용"],["new84","A6 신축 84㎡ 시세 (현재가치)","s","억","참고: 롯데캐슬이스트폴 호가 30억(26.11)"],
+ ["⑥ 감정평가"],["amult","구역 평균 감정배수 (공시가 대비)","s","배","인근 구역 실제 감정결과로 교체"],["bonus","부광 입지·연식 가점","s","%","역·편의시설 근접"],["wa","규모보정 전용면적 가중치","s","%","나머지는 대지지분"],["bratio","기준 비례율","s","%",""],
+ ["⑦ 단계 프리미엄 배수·할인율"],["m2","구역지정 배수","s","배","현재 프리미엄 대비"],["m3","조합설립 배수","s","배",""],["m4","사업시행인가 배수","s","배",""],["d0","사업성가치 할인율 (현재)","s","%","신축시세 대비"],["dmp","입주권 할인율 (관리처분)","s","%","입주 시 0%로 수렴"],
+ ["⑧ 사업 일정 (연도, 오름차순 유지)"],...STAGES.map((n,i)=>["st"+i,n,"s","년",""]),
+ ["⑨ 확률·판단 규칙"],["prob","시나리오 확률","s","%","합계 100%"],["hurdle","보유 판단 허들 (대안수익률 + )","c","%","보유 IRR ≥ 대안수익률 + 이 값"],["minmargin","최소 조합원 안전마진","c","%","신축 ÷ 조합원분양가 − 1"]];
+const getS=(k,i)=>k.startsWith("st")?S[i].st[+k.slice(2)]:S[i][k];
+const setS=(k,i,v)=>{if(k.startsWith("st"))S[i].st[+k.slice(2)]=v;else S[i][k]=v};
+const toUI=(v,u)=>u==="%"?+(v*100).toFixed(3):+(+v).toFixed(4),fromUI=(v,u)=>u==="%"?v/100:v;
+const stepOf=u=>u==="%"?"0.5":u==="년"?"1":"0.05";
+function buildInputs(){
+ document.getElementById("inTbl").innerHTML=`<thead><tr><th>항목</th><th class="sc0">약세</th><th class="sc1">기본</th><th class="sc2">강세</th><th>단위</th><th class="l">메모</th></tr></thead><tbody>`+FIELDS.map(f=>{
+  if(f.length===1)return `<tr class="sec"><td colspan="6">${f[0]}</td></tr>`;
+  const [k,l,t,u,n]=f;
+  const cells=t==="c"?`<td colspan="3" style="text-align:center"><input class="inp" type="number" step="${stepOf(u)}" id="in-c-${k}" value="${toUI(C[k],u)}"> <span class="note">공통</span></td>`:[0,1,2].map(i=>`<td><input class="inp" type="number" step="${stepOf(u)}" id="in-s-${k}-${i}" value="${toUI(getS(k,i),u)}"></td>`).join("");
+  return `<tr><td><label for="${t==="c"?"in-c-"+k:"in-s-"+k+"-1"}">${l}</label></td>${cells}<td>${u}</td><td class="wrap">${n}</td></tr>`}).join("")+"</tbody>";
+ document.getElementById("cwTbl").innerHTML=`<thead><tr><th>비교사례</th><th>가중치 (%)</th><th>입지보정 (%)</th></tr></thead><tbody>`+COMPS.map(([,nm],i)=>`<tr><td>${nm}</td><td><input class="inp" type="number" step="5" id="in-cw-${i}" value="${toUI(C.cw[i],"%")}"></td><td><input class="inp" type="number" step="1" id="in-loc-${i}" value="${toUI(C.loc[i],"%")}"></td></tr>`).join("")+"</tbody>";
+}
+function syncInputs(){const a=document.activeElement;
+ FIELDS.forEach(f=>{if(f.length===1)return;const [k,,t,u]=f;
+  if(t==="c"){const el=document.getElementById("in-c-"+k);if(el&&el!==a)el.value=toUI(C[k],u)}
+  else[0,1,2].forEach(i=>{const el=document.getElementById(`in-s-${k}-${i}`);if(el&&el!==a)el.value=toUI(getS(k,i),u)})});
+ C.cw.forEach((v,i)=>{const e1=document.getElementById("in-cw-"+i),e2=document.getElementById("in-loc-"+i);if(e1!==a)e1.value=toUI(v,"%");if(e2!==a)e2.value=toUI(C.loc[i],"%")});
+ [...SL,...SLC].forEach(([k,,,,,f],j)=>{const isS=j<SL.length,el=document.getElementById((isS?"s-":"c-")+k);if(!el)return;const v=isS?S[sel][k]:C[k];if(el!==a)el.value=v;document.getElementById(el.id+"-v").textContent=f(v)})}
+document.getElementById("v-inputs").addEventListener("change",e=>{const t=e.target;if(!t.classList.contains("inp"))return;const v=parseFloat(t.value);if(!isFinite(v))return;const p=t.id.split("-");
+ if(p[1]==="c"){const u=FIELDS.find(f=>f[0]===p[2])[3];C[p[2]]=fromUI(v,u)}
+ else if(p[1]==="s"){const u=FIELDS.find(f=>f[0]===p[2])[3];setS(p[2],+p[3],fromUI(v,u))}
+ else if(p[1]==="cw")C.cw[+p[2]]=v/100;else if(p[1]==="loc")C.loc[+p[2]]=v/100;
+ render()});
+
+/* ---------- 슬라이더 ---------- */
+const SL=[["g","주택가격 연상승률",-0.02,0.08,0.005,PP],["gc","공사비 연상승률",0,0.08,0.005,PP],["new84","신축 84㎡ 시세(현재가치)",16,34,0.5,v=>v.toFixed(1)+"억"],["amult","구역 평균 감정배수",1.0,1.8,0.05,v=>v.toFixed(2)+"배"],["bonus","부광 입지·연식 가점",0,0.2,0.01,PP],["m2","구역지정 프리미엄 배수",1,1.8,0.05,v=>v.toFixed(2)+"배"],["prob","시나리오 확률",0,1,0.05,PP]];
+const SLC=[["p84","84㎡ 조합원 분양가(현재가치)",10,17,0.25,v=>v.toFixed(2)+"억"],["appr0","현재 감정가",1.5,3.5,0.05,v=>v.toFixed(2)+"억"],["alt","대안 투자수익률",0,0.07,0.005,PP]];
+const slider=(id,lab,min,max,step,val,f)=>`<div class="ctl"><label for="${id}"><span>${lab}</span><span class="num" id="${id}-v">${f(val)}</span></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;
+function buildCtl(){
+ document.getElementById("tabs").innerHTML=S.map((s,i)=>`<button type="button" data-i="${i}" aria-pressed="${i===sel}" style="${i===sel?"background:"+COL[i]:""}">${s.name}</button>`).join("");
+ document.getElementById("ctlcard").style.setProperty("--cur",HEX[sel]);
+ document.getElementById("ctls").innerHTML=SL.map(([k,l,a,b,st,f])=>slider("s-"+k,l,a,b,st,S[sel][k],f)).join("");
+ document.getElementById("ctlc").innerHTML=SLC.map(([k,l,a,b,st,f])=>slider("c-"+k,l,a,b,st,C[k],f)).join("")}
+document.getElementById("tabs").addEventListener("click",e=>{const t=e.target.closest("button");if(!t)return;sel=+t.dataset.i;buildCtl();render()});
+document.getElementById("ctlcard").addEventListener("input",e=>{const t=e.target;if(t.type!=="range")return;const [p,k]=t.id.split("-");const v=+t.value;if(p==="s")S[sel][k]=v;else C[k]=v;render()});
+document.querySelectorAll(".reset").forEach(b=>b.addEventListener("click",()=>{C=clone(COMMON);S=clone(SCEN0);buildCtl();buildInputs();render()}));
+function save(){try{localStorage.setItem("bkh-model-v2",JSON.stringify({S,C,sel}))}catch(e){}}
+
+/* ---------- 차트 ---------- */
+const ch=document.getElementById("chart"),mt_=document.getElementById("metro");
+function drawChart(){
+ if(!R||!ch.clientWidth)return;const W=ch.clientWidth,H=ch.clientHeight,ml=46,mr=W<520?16:58,mt=16,mb=28,iw=W-ml-mr,ih=H-mt-mb;
+ const Y=R.YEARS.filter(y=>y<=2040),all=R.out.flatMap(o=>o.path.filter(p=>p.y<=2040).map(p=>p.price));
+ const lo=Math.min(0,Math.floor(Math.min(...all)/5)*5),hi=Math.ceil(Math.max(...all)/5)*5;
+ const x=y=>ml+(y-Y[0])/(Y[Y.length-1]-Y[0])*iw,yv=v=>mt+ih-(v-lo)/(hi-lo||1)*ih;
+ let g="";const step=(hi-lo)>30?10:5;
+ for(let v=lo;v<=hi;v+=step)g+=`<line x1="${ml}" x2="${ml+iw}" y1="${yv(v)}" y2="${yv(v)}" stroke="var(--line)"/><text x="${ml-8}" y="${yv(v)+4}" text-anchor="end">${v}억</text>`;
+ Y.forEach((y,i)=>{if(W<520&&i%2)return;g+=`<text x="${x(y)}" y="${H-8}" text-anchor="middle">${W<520?"'"+String(y).slice(2):y}</text>`});
+ R.out.forEach((o,k)=>{const pts=o.path.filter(p=>p.y<=2040);
+  g+=`<polyline fill="none" stroke="${COL[k]}" stroke-width="${k===sel?3.5:2.2}" stroke-linejoin="round" points="${pts.map(p=>x(p.y)+","+yv(p.price)).join(" ")}"/>`;
+  o.s.st.forEach((sy,i)=>{if(i===0||sy>2040)return;const p=pts.find(q=>q.y===sy);if(!p)return;g+=`<circle cx="${x(sy)}" cy="${yv(p.price)}" r="${i===6?6:4.5}" fill="var(--bg)" stroke="${COL[k]}" stroke-width="2.5"><title>${o.s.name} · ${STAGES[i]} ${sy}년 · ${p.price.toFixed(2)}억</title></circle>`});
+  const last=pts[pts.length-1];if(W>=520)g+=`<text x="${x(last.y)+6}" y="${yv(last.price)+4}" style="fill:${COL[k]};font-weight:700">${last.price.toFixed(1)}억</text>`});
+ g+=`<circle cx="${x(2026)}" cy="${yv(R.cur)}" r="7" fill="var(--a)" stroke="var(--bg)" stroke-width="2"/><text x="${x(2026)+12}" y="${yv(R.cur)-12}" style="fill:var(--ink);font-weight:700">현재 ${R.cur.toFixed(2)}억</text>`;
+ ch.innerHTML=g}
+function drawMetro(){
+ if(!R||!mt_.clientWidth)return;const W=mt_.clientWidth,H=mt_.clientHeight,ml=W<520?40:56,mr=14,y0=34,gap=(H-y0-12)/3,Y0=2026,Y1=2040,x=y=>ml+(Math.min(y,Y1)-Y0)/(Y1-Y0)*(W-ml-mr);
+ const sh=["연번","지정","조합","사시","관처","이주","입주"];let g=`<text x="0" y="20" style="fill:var(--ink);font-weight:700">사업 일정</text>`;
+ R.out.forEach((o,k)=>{const yy=y0+gap*k+gap/2;g+=`<text x="${ml-10}" y="${yy+4}" text-anchor="end" style="fill:${COL[k]};font-weight:700">${o.s.name}</text><line x1="${x(o.s.st[0])}" x2="${x(o.s.st[6])}" y1="${yy}" y2="${yy}" stroke="${COL[k]}" stroke-width="6" stroke-linecap="round"/>`;
+  let lastX=-99;o.s.st.forEach((sy,i)=>{const cx=x(sy);g+=`<circle cx="${cx}" cy="${yy}" r="${i===6?7:5}" fill="var(--bg)" stroke="${COL[k]}" stroke-width="3"><title>${STAGES[i]} ${sy}년</title></circle>`;
+   if(cx-lastX>(W<520?30:38)){g+=`<text x="${cx}" y="${yy-11}" text-anchor="middle" style="font-size:12px">${sh[i]}</text>`;lastX=cx}})});
+ mt_.innerHTML=g}
+
+/* ---------- 렌더 ---------- */
+const tb=(id,html)=>{document.getElementById(id).innerHTML=html};
+const SIG=["공사비 연 4.5%↑ 지속 · A6 대지평당가 8천만 하회 · 동의율 정체로 구역지정 지연","2027 구역지정 고시 · 조합원 분양가 13억±1억 · 신축 84㎡ 24억선 유지","A6 대지평당가 1억 돌파 · 인근 구역 감정배수 1.5배↑ · 공사비 연 2~3% 안정"];
+function heat(v,lo,hi){if(!fin(v))return"";const t=hi!==lo?(v-lo)/(hi-lo):.5;const c=t<.5?[248+(255-248)*t*2,105+(235-105)*t*2,107+(132-107)*t*2]:[255+(99-255)*(t-.5)*2,235+(190-235)*(t-.5)*2,132+(123-132)*(t-.5)*2];return `background:rgb(${c.map(Math.round).join(",")})`}
+function render(){
+ R=run(C,S);const o=R.out,b=o[1],pw=v=>o.reduce((s,x,i)=>s+S[i].prob*v(x),0);
+ /* dashboard */
+ document.getElementById("ttl").textContent=`기본 시나리오는 ${b.verdict}: 구역지정 때 ${b.exits[0].price.toFixed(1)}억, 입주 보유 IRR ${(b.IRR*100).toFixed(0)}%`;
+ const K=[["추정 현재 시세",EP(R.cur),`A6 ${R.s6.lastLabel} 신축급 거래 기반`],["구역지정 시점 (기본)",EP(b.exits[0].price),b.s.st[1]+"년 예상"],["84㎡ 분담금 (기본)",EP(b.c84),"관리처분 시점 명목"],["입주 보유 IRR (기본)",PP(b.IRR),"이자·이주 주거비 반영"],["확률가중 IRR",PP(pw(x=>x.IRR)),S.map(s=>s.name+" "+Math.round(s.prob*100)+"%").join(" · ")]];
+ tb("kpis",K.map(k=>`<div class="kpi"><span>${k[0]}</span><b>${k[1]}</b><span>${k[2]}</span></div>`).join(""));
+ const vcol={"매도 우위":"var(--r)","입주까지 보유":"var(--g)","단계 매도":"#d97706"};
+ tb("verd",o.map((x,k)=>{const gd=x.verdict==="매도 우위"?`구역지정 기대감 구간에서 매도. 연수익률이 가장 높은 시점은 ${x.best.stage}`:x.verdict==="입주까지 보유"?`분담금 ${x.c84.toFixed(1)}억 자금계획 마련, 59㎡ 신청(분담금 ${x.c59.toFixed(1)}억)도 검토`:`${x.best.stage} 시점 매도 검토 (연 ${PP(x.best.cagr)})`;
+  return `<div class="vc" style="background:${TINT[k]}"><h3 class="sc${k}">${x.s.name} · 확률 ${Math.round(x.s.prob*100)}%</h3><div class="v" style="color:${vcol[x.verdict]}">${x.verdict}</div>
+  <dl><dt>구역지정 시점</dt><dd class="num">${E(x.exits[0].price)}</dd><dt>사업시행인가 시점</dt><dd class="num">${E(x.exits[2].price)}</dd><dt>관리처분 입주권</dt><dd class="num">${E(x.ticket)}</dd><dt>84㎡ 분담금</dt><dd class="num">${E(x.c84)}</dd><dt>입주 보유 IRR</dt><dd class="num">${P(x.IRR)}</dd></dl>
+  <p>${gd}</p><div class="sig">이 시나리오로 가는 신호: ${SIG[k]}</div></div>`}).join(""));
+ const mx=Math.max(...o.map(x=>x.p84n));
+ tb("bdn",o.map((x,k)=>`<div class="grp"><div class="gh sc${k}">${x.s.name} · 분담금 ${E(x.c84)}</div>
+  <div class="row"><span>조합원 분양가</span><div class="track"><div class="fill" style="width:${x.p84n/mx*100}%;background:color-mix(in srgb,${HEX[k]} 30%,transparent)"></div></div><span class="num">${E(x.p84n)}</span></div>
+  <div class="row"><span>권리가액</span><div class="track"><div class="fill" style="width:${Math.max(0,x.right)/mx*100}%;background:${HEX[k]}"></div></div><span class="num">${E(x.right)}</span></div></div>`).join(""));
+ const cv=o.flatMap(x=>[...x.exits.map(e=>e.cagr),x.IRR]).filter(fin),cmax=Math.max(0.05,...cv),cmin=Math.min(0,...cv),span=cmax-cmin,z=-cmin/span*100;
+ tb("cagr",["구역지정 매도","조합설립 매도","사업시행 매도","관리처분 매도","입주 보유 IRR"].map((l,i)=>`<div class="grp"><div class="gh">${l}</div>${o.map((x,k)=>{const v=i<4?x.exits[i].cagr:x.IRR,w=fin(v)?Math.abs(v)/span*100:0,left=v>=0?z:z-w;return `<div class="row"><span class="sc${k}">${x.s.name}</span><div class="track"><div class="fill" style="left:${left}%;width:${w}%;background:${HEX[k]}"></div></div><span class="num">${P(v)}</span></div>`}).join("")}</div>`).join(""));
+ const sg=[[`A6 신축급 대지평당가 (${R.s6.lastLabel})`,R.s6.oc.land,8000,10000,M,1],["대상 추정 현재 시세",R.cur,6.0,7.0,EP,1],["A6 vs A5 신축급 단가차 (시점차 포함)",R.locPrem,0,0.10,PP,1],["공사비 연상승률 (기본 가정)",S[1].gc,0.045,0.025,PP,0],["조합원 안전마진 (기본)",b.margin,0.5,1.0,PP,1]];
+ let sc=0;const stc={약세:"var(--r)",중립:"#7a828f",강세:"var(--g)"};
+ tb("sig",`<thead><tr><th>지표</th><th>현재값</th><th>약세 신호</th><th>강세 신호</th><th>판정</th></tr></thead><tbody>`+sg.map(([l,v,lo,hi,f,up])=>{const j=up?(v<=lo?"약세":v>=hi?"강세":"중립"):(v>=lo?"약세":v<=hi?"강세":"중립");sc+=j==="강세"?1:j==="약세"?-1:0;
+  return `<tr><td>${l}</td><td class="num">${f(v)}</td><td class="num">${up?"≤ ":"≥ "}${f(lo)}</td><td class="num">${up?"≥ ":"≤ "}${f(hi)}</td><td><span class="pill" style="background:${stc[j]}">${j}</span></td></tr>`}).join("")+`<tr class="tot"><td>종합 (강세 − 약세 = ${sc>0?"+":""}${sc})</td><td colspan="4">${sc>=2?"강세 쪽":sc<=-2?"약세 쪽":"기본(중립)"}</td></tr></tbody>`);
+ /* timeline */
+ tb("curTbl",`<tbody><tr><td>A6 최근월(${R.s6.lastLabel}) 신축급 평균 대지평당가</td><td class="num">${M(R.s6.oc.land)}</td></tr><tr><td>A6 최근월(${R.s6.lastLabel}) 신축급 평균 대지평당 프리미엄</td><td class="num">${M(R.s6.oc.prem)}</td></tr><tr><td>방법1: 대지평당법</td><td class="num">${E(R.m1)}</td></tr><tr><td>방법2: 프리미엄법 (감정가 + 대지 × 프리미엄)</td><td class="num">${E(R.m2)}</td></tr><tr class="tot"><td>추정 현재 시세 (대지평당법 ${PP(C.wmeth)})</td><td class="num">${E(R.cur)}</td></tr><tr><td>현재 프리미엄 (시세 − 현재 감정가)</td><td class="num">${E(R.prem0)}</td></tr></tbody>`);
+ tb("tlTbl",`<thead><tr><th>연도</th>${S.map((s,k)=>`<th class="l sc${k}">단계 (${s.name})</th><th class="sc${k}">추정가</th><th class="sc${k}">사업성가치</th><th class="sc${k}">전년비</th>`).join("")}</tr></thead><tbody>`+R.YEARS.map((y,i)=>`<tr><td class="num">${y}</td>${o.map(x=>{const p=x.path[i];return `<td class="l"><span class="chip" style="background:${STC[p.idx]}">${SHORT[p.idx]}</span></td><td class="num"><b>${E(p.price)}</b></td><td class="num">${E(p.fund)}</td><td class="num">${i?P(p.yoy):""}</td>`}).join("")}</tr>`).join("")+"</tbody>");
+ /* contrib */
+ const BR=[["기준연도 → 사업시행인가 연수",x=>x.nSa,Yr],["기준연도 → 관리처분 연수",x=>x.nMp,Yr],["기준연도 → 입주 연수",x=>x.nMv,Yr],["SEC","감정·권리"],["부광 종전감정 (현재가치)",x=>x.apPv,E],["부광 종전감정 (사업시행인가 명목)",x=>x.apNom,E],["SEC","비례율 지수"],["일반분양 수입 지수",x=>x.fGen,N3],["조합원 분양가 연상승률",x=>x.gm,P],["조합원 분양 수입 지수",x=>x.fMem,N3],["공사비 지수",x=>x.fCost,N3],["총수입 지수",x=>x.rev,N3],["총사업비 지수",x=>x.cost,N3],["비례율 (관리처분 시점)",x=>x.ratio,P,1],["권리가액 (감정 × 비례율)",x=>x.right,E,1],["SEC","분담금"],["84㎡ 조합원 분양가 (명목)",x=>x.p84n,E],["84㎡ 분담금",x=>x.c84,E,1],["59㎡ 조합원 분양가 (명목)",x=>x.p59n,E],["59㎡ 분담금",x=>x.c59,E],["SEC","가치"],["신축 84㎡ 시세 (관리처분 시점)",x=>x.newMp,E],["신축 84㎡ 시세 (입주 시점)",x=>x.newMv,E],["입주권 가치 (관리처분, 신축×(1−할인)−분담금)",x=>x.ticket,E,1],["입주 시 순가치 (신축 − 분담금)",x=>x.netMv,E],["조합원 안전마진 (신축 ÷ 조합원분양가 − 1)",x=>x.margin,P]];
+ tb("bTbl",scHead("항목")+"<tbody>"+BR.map(r=>r[0]==="SEC"?`<tr class="sec"><td colspan="4">${r[1]}</td></tr>`:`<tr${r[3]?' class="tot"':""}><td>${r[0]}</td>${o.map(x=>`<td class="num">${r[2](r[1](x))}</td>`).join("")}</tr>`).join("")+"</tbody>");
+ /* appraisal */
+ tb("apTbl",`<thead><tr><th>비교사례</th><th>구역</th><th>준공</th><th>전용</th><th>대지</th><th>공시가</th><th>참고 거래가</th><th>가중치</th><th>입지보정</th><th>연식보정</th>${["규모보정","배수 전 추정","부광 감정"].map(h=>S.map((s,k)=>`<th class="sc${k}">${h} ${s.name}</th>`).join("")).join("")}</tr></thead><tbody>`+
+  o[0].apRows.map((r,i)=>`<tr><td>${esc(r.nm)}</td><td>${esc(r.zone)}</td><td class="num">${r.built}</td><td class="num">${Pg(r.area)}</td><td class="num">${Pg(r.land)}</td><td class="num">${E(r.pub)}</td><td class="num">${r.price!=null?E(r.price):"–"}</td><td class="num">${P(r.w)}</td><td class="num">${P(r.la)}</td><td class="num">${N3(r.age)}</td>${o.map(x=>`<td class="num">${N3(x.apRows[i].size)}</td>`).join("")}${o.map(x=>`<td class="num">${E(x.apRows[i].pre)}</td>`).join("")}${o.map(x=>`<td class="num"><b>${E(x.apRows[i].fin)}</b></td>`).join("")}</tr>`).join("")+
+  `<tr class="tot"><td>가중평균</td><td colspan="6"></td><td class="num">${P(C.cw.reduce((a,b)=>a+b,0))}</td><td colspan="5"></td>${o.map(x=>`<td class="num">${E(x.apK)}</td>`).join("")}${o.map(x=>`<td class="num">${E(x.apPv)}</td>`).join("")}</tr></tbody>`);
+ tb("apSum",scHead("항목")+`<tbody><tr><td>구역 평균 감정배수 × (1 + 가점)</td>${o.map(x=>`<td class="num">${X(x.s.amult*(1+x.s.bonus))}</td>`).join("")}</tr><tr class="tot"><td>부광 종전감정 추정 (현재가치)</td>${o.map(x=>`<td class="num">${E(x.apPv)}</td>`).join("")}</tr><tr><td>현재 감정가(${C.appr0.toFixed(2)}억) 대비</td>${o.map(x=>`<td class="num">${X(x.apPv/C.appr0)}</td>`).join("")}</tr><tr><td>참고: 마드레 예상 감정가 (공시가 × 배수)</td>${o.map(x=>`<td class="num">${E(x.maderaAp)}</td>`).join("")}</tr><tr><td>부광 − 마드레 감정 차이</td>${o.map(x=>`<td class="num">${E(x.apPv-x.maderaAp)}</td>`).join("")}</tr></tbody>`);
+ /* returns */
+ const ER=[["매도연도",e=>e.y,Yr],["매도가",e=>e.price,E],["보유연수",e=>e.n,Yr],["순매도액 (비용 차감)",e=>e.net,E],["차익",e=>e.gain,E],["연환산 수익률 (CAGR)",e=>e.cagr,P,1]];
+ tb("exTbl",scHead("항목")+`<tbody><tr><td>현재 시세 (출발점)</td>${o.map(()=>`<td class="num">${E(R.cur)}</td>`).join("")}</tr>`+[0,1,2,3].map(i=>`<tr class="sec"><td colspan="4">매도 시점: ${STAGES[i+1]}</td></tr>`+ER.map(r=>`<tr${r[3]?' class="tot"':""}><td>${r[0]}</td>${o.map(x=>`<td class="num">${r[2](r[1](x.exits[i]))}</td>`).join("")}</tr>`).join("")).join("")+"</tbody>");
+ document.getElementById("cfWrap").innerHTML=o.map((x,k)=>`<div class="card"><h2>② 입주까지 보유 현금흐름 · <span class="sc${k}">${x.s.name}</span> <span class="note">(억원, 입주 시 신축 시세로 평가)</span></h2><div class="scroll"><table class="sticky"><thead><tr><th>항목</th>${R.YEARS.map(y=>`<th>${y}</th>`).join("")}<th>합계</th></tr></thead><tbody>`+
+  x.cfItems.map(it=>`<tr><td>${it.l}</td>${it.v.map(v=>`<td class="num">${v?E(v):"·"}</td>`).join("")}<td class="num">${E(it.v.reduce((a,b)=>a+b,0))}</td></tr>`).join("")+
+  `<tr class="tot"><td>순현금흐름</td>${x.cf.map(v=>`<td class="num">${v?E(v):"·"}</td>`).join("")}<td class="num">${E(x.profit)}</td></tr></tbody></table></div><p style="margin:10px 0 0"><b>IRR ${P(x.IRR)}</b> · 순이익 ${E(x.profit)}</p></div>`).join("");
+ tb("cmpTbl",scHead("항목")+`<tbody><tr><td>지금 매도 후 대안투자 → 입주연도 가치</td>${o.map(x=>`<td class="num">${E(x.altV)}</td>`).join("")}</tr><tr><td>보유 시 입주연도 순자산 (현재가 + 순이익)</td>${o.map(x=>`<td class="num">${E(R.cur+x.profit)}</td>`).join("")}</tr><tr class="tot"><td>보유 우위</td>${o.map(x=>`<td class="num">${E(x.holdAdv)}</td>`).join("")}</tr><tr><td>최고 CAGR 매도 단계</td>${o.map(x=>`<td>${x.best.stage}</td>`).join("")}</tr><tr><td>판단</td>${o.map(x=>`<td><b>${x.verdict}</b></td>`).join("")}</tr></tbody>`);
+ /* sensitivity (기본) */
+ const G=[["1) 입주 시 순가치 (억) — 조합원 분양가 × 신축 84㎡ 시세 (둘 다 현재가치)","조합원 분양가",[11,11.5,12,12.5,13,13.5,14,14.5,15],v=>v+"억","신축 시세",[20,21,22,23,24,25,26,27,28],v=>v+"억",(a,c)=>c*Math.pow(1+b.s.g,b.nMv)-(a*b.fMem-b.right),E],
+  ["2) 부광 종전감정 (현재가치, 억) — 구역 감정배수 × 입지·연식 가점","감정배수",[1.1,1.2,1.3,1.4,1.5,1.6,1.7],v=>v.toFixed(1)+"배","가점",[0,.025,.05,.075,.1,.125,.15],PP,(a,c)=>a*(1+c)*b.apK,E],
+  ["3) 84㎡ 분담금 (명목, 억) — 종전감정(명목) × 비례율 (낮을수록 유리)","종전감정",[2.5,3,3.5,4,4.5,5],v=>v.toFixed(1)+"억","비례율",[.7,.8,.9,1,1.1,1.2],PP,(a,c)=>b.p84n-a*c,E,1],
+  ["4) 총투자 대비 연환산 수익률 — 입주 지연 × 주택가격 상승률 [신축가치 ÷ (현재가 + 분담금)]","입주 지연",[0,1,2,3,4,5],v=>v+"년","상승률",[0,.01,.02,.03,.04,.05,.06],PP,(a,c)=>Math.pow(b.s.new84*Math.pow(1+c,b.nMv+a)/(R.cur+b.c84),1/(b.nMv+a))-1,P],
+  ["5) 구역지정 시점 추정가 (억) — 단계배수 × 주택가격 상승률","구역지정 배수",[1.1,1.2,1.25,1.3,1.4,1.5],v=>v.toFixed(2)+"배","상승률",[0,.02,.03,.05,.07],PP,(a,c)=>C.appr0+R.prem0*a*Math.pow(1+c,b.s.st[1]-C.base),E]];
+ document.getElementById("sens").innerHTML=G.map(([t,rl,rows,rf,cl,cols,cf,f,fmt,inv])=>{const vals=rows.map(a=>cols.map(c=>f(a,c)));const flat=vals.flat().filter(fin);let lo=Math.min(...flat),hi=Math.max(...flat);if(inv)[lo,hi]=[hi,lo];
+  return `<div class="card grid-h"><h2>${t}</h2><div class="scroll"><table class="heat sticky"><thead><tr><th>${rl} ↓ / ${cl} →</th>${cols.map(c=>`<th>${cf(c)}</th>`).join("")}</tr></thead><tbody>${rows.map((a,i)=>`<tr><td class="num"><b>${rf(a)}</b></td>${vals[i].map(v=>`<td class="num h" style="${heat(v,lo,hi)}">${fmt===E?EP(v):PP(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`}).join("");
+ /* comps */
+ [["rawA6","stA6",A6,R.s6,"A6"],["rawA5","stA5",A5,R.s5,"A5"]].forEach(([rid,sid,rows,st,z])=>{
+  const sorted=rows.slice().sort((a,b)=>b[1].localeCompare(a[1]));
+  tb(rid,`<thead><tr><th>단지</th><th>계약일</th><th>유형</th><th>준공</th><th>지번</th><th>층</th><th>전용</th><th>대지</th><th>거래가</th><th>공시가</th><th>신축급</th><th>대지평당가</th><th>전용평당가</th><th>공시가 배수</th><th>대지평당 프리미엄</th></tr></thead><tbody>`+sorted.map(r=>{const d=derive(r,C);return `<tr style="${r[11]?"":"opacity:.45"}"><td>${esc(r[5])}${r[12]?'<span class="add">추가</span>':""}</td><td class="num">${esc(r[1])}</td><td>${esc(r[2])}</td><td class="num">${esc(r[3]??"–")}</td><td>${esc(r[4])}</td><td class="num">${r[6]??"–"}</td><td class="num">${Pg(r[7])}</td><td class="num">${Pg(r[8])}</td><td class="num"><b>${E(r[9])}</b></td><td class="num">${r[10]!=null?E(r[10]):"–"}</td><td>${d.nw?"Y":"N"}</td><td class="num">${M(d.land)}</td><td class="num">${M(d.per)}</td><td class="num">${X(d.mult)}</td><td class="num">${M(d.prem)}</td></tr>`}).join("")+"</tbody>");
+  const line=(l,v,cls="")=>`<tr${cls}><td>${l}</td><td class="num">${v.n}</td><td class="num">${M(v.land)}</td><td class="num">${M(v.prem)}</td><td class="num">${X(v.mult)}</td></tr>`;
+  tb(sid,`<thead><tr><th>구간</th><th>건수</th><th>평균 대지평당가</th><th>평균 대지평당 프리미엄</th><th>평균 공시가 배수</th></tr></thead><tbody>`+
+   st.months.map(m=>line(`${m.label} 신축급`,m.nw)+line(`${m.label} 전체`,m.all)).join("")+
+   (z==="A6"?line(`최근월(${st.lastLabel}) 신축급 · 현재 시세 산정 기준`,st.oc,' class="tot"')+`<tr><td>A6 입지 프리미엄 (A6 최근월 신축급 ÷ A5 최근 3개월 신축급 − 1)</td><td colspan="4" class="num">${P(R.locPrem)}</td></tr><tr><td>같은 기간 비교 (A5 최근 3개월 구간, A6 ÷ A5 − 1)</td><td colspan="4" class="num">${P(R.locPremSame)}</td></tr>`
+   :line(`최근 3개월 신축급 · A6 비교 기준`,st.js,' class="tot"'))+"</tbody>")});
+ drawChart();drawMetro();syncInputs();updCnt();save()}
+
+tb("guideTbl",`<tbody>${[["대시보드","시나리오별 핵심 수치, 가격 경로 차트, 일정 노선도, 판단과 신호 점검"],["입력변수","모든 가정을 직접 수정 (엑셀 입력변수 시트와 동일 항목) + 감정 비교사례 가중치·입지보정"],["연도별가격","2026~2042 연도별 단계, 추정가, 사업성가치, 전년비 + 현재 시세 산정"],["분담금","비례율(공사비·분양가 인플레이션 연동), 권리가액, 84/59㎡ 분담금, 입주권 가치"],["감정평가","거래사례비교법: 비교사례별 규모·연식·입지 보정 후 가중평균"],["수익률","단계별 매도 CAGR, 입주까지 연도별 현금흐름과 IRR, 대안투자 비교"],["민감도","분양가×신축시세, 감정배수×가점, 감정×비례율, 지연×상승률, 구역지정 배수×상승률"],["실거래 A6 · A5","사용자 제공 원자료와 대지평당가·프리미엄·공시가배수, 구간별 통계"],["주요 한계","감정은 공시가 × 배수로 대리 추정(실제 감정은 개발이익을 배제한 거래사례 기반). 양도세·취득세 제외. 비례율은 지수 모델로 단순화. 중도금은 이주 시 일괄 대출 가정."],["면책","시나리오 분석용이며 투자 자문이 아닙니다. 조합 추정분담금·인근 구역 감정결과가 나오면 해당 값으로 교체하세요."]].map(([a,c])=>`<tr><td><b>${a}</b></td><td class="wrap" style="color:var(--ink)">${c}</td></tr>`).join("")}</tbody>`);
+
+/* ---------- 실거래 붙여넣기 ---------- */
+let EXTRA=[];
+const allKeys=()=>new Set([...A6,...A5].map(tradeKey));
+function addRows(rows){const ks=allKeys();let added=0,dup=0;rows.forEach(r=>{const k=tradeKey(r);if(ks.has(k)){dup++;return}ks.add(k);(r[0]==="A6"?A6:A5).push(r);EXTRA.push(r);added++});return {added,dup}}
+try{const ex=JSON.parse(localStorage.getItem("bkh-extra")||"[]");if(Array.isArray(ex))addRows(ex.filter(r=>Array.isArray(r)&&r.length>=12))}catch(e){}
+const saveExtra=()=>{try{localStorage.setItem("bkh-extra",JSON.stringify(EXTRA))}catch(e){}};
+document.querySelectorAll(".paste").forEach(el=>{const z=el.dataset.z;
+ el.innerHTML=`<h2>실거래 붙여넣기 · ${z}</h2><p class="note" style="margin-top:-6px">재개발닷컴 ${z} 구역 실거래 목록을 그대로 복사해 붙여넣으세요(계약일부터 대지지분까지, 여러 건 한 번에 가능). 이미 있는 거래는 자동으로 건너뜁니다.</p>
+ <label for="pt-${z}" class="note">붙여넣을 텍스트</label><textarea id="pt-${z}" placeholder="26.11.20&#10;다세대&#10;2019년&#10;중곡동 633-6&#10;부광하우스 2층&#10;전용 10.24평&#10;6.5억&#10;공주가 2.12억&#10;8,690만/평&#10;7.48평"></textarea>
+ <div class="tools" style="margin:10px 0 0"><button class="btn" type="button" data-act="add">읽어서 추가</button><button class="btn" type="button" data-act="clear">추가한 ${z} 거래 모두 지우기</button><span class="note" id="cnt-${z}"></span></div><div class="msg" id="msg-${z}" role="status"></div>`;
+ el.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const msg=document.getElementById("msg-"+z),ta=document.getElementById("pt-"+z);
+  if(b.dataset.act==="add"){const {rows,skipped}=parseTrades(ta.value,z);if(!rows.length){msg.textContent="읽을 수 있는 거래가 없습니다. 계약일(예: 26.11.20)부터 대지지분까지 포함해 복사했는지 확인해 주세요."+(skipped.length?` (읽지 못한 거래: ${skipped.join(", ")})`:"");return}
+   const {added,dup}=addRows(rows);saveExtra();ta.value="";msg.textContent=`${added}건 추가, 중복 ${dup}건 건너뜀`+(skipped.length?`, 읽지 못한 거래 ${skipped.length}건(${skipped.join(", ")})`:"")+". 모든 탭을 다시 계산했습니다.";render()}
+  else{const arr=z==="A6"?A6:A5;const n=EXTRA.filter(r=>r[0]===z).length;for(let i=arr.length-1;i>=0;i--)if(arr[i][12])arr.splice(i,1);EXTRA=EXTRA.filter(r=>r[0]!==z);saveExtra();msg.textContent=`추가했던 ${n}건을 지웠습니다.`;render()}})});
+function updCnt(){["A6","A5"].forEach(z=>{const el=document.getElementById("cnt-"+z);if(el)el.textContent=`추가한 거래 ${EXTRA.filter(r=>r[0]===z).length}건`})}
+
+/* ---------- 탭 라우팅 ---------- */
+document.getElementById("nav").innerHTML=VIEWS.map(([id,l])=>`<a href="#${id}" data-v="${id}">${l}</a>`).join("");
+function route(){const h=location.hash.slice(1);const id=VIEWS.some(v=>v[0]===h)?h:"dashboard";
+ VIEWS.forEach(([v])=>document.getElementById("v-"+v).classList.toggle("on",v===id));
+ document.querySelectorAll("nav a").forEach(a=>{if(a.dataset.v===id){a.setAttribute("aria-current","page");a.scrollIntoView({block:"nearest",inline:"nearest"})}else a.removeAttribute("aria-current")});
+ if(id==="dashboard")requestAnimationFrame(()=>{drawChart();drawMetro()})}
+window.addEventListener("hashchange",()=>{route();window.scrollTo(0,0)});
+const ro1=new ResizeObserver(drawChart);ro1.observe(ch);const ro2=new ResizeObserver(drawMetro);ro2.observe(mt_);
+buildCtl();buildInputs();route();render();
+}
+</script>
+</body>
+</html>
